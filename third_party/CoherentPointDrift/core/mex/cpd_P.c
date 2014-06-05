@@ -32,37 +32,51 @@ void cpd_comp(
   temp_x = (double*) calloc(D, sizeof(double));
   
   ksig = -2.0 * *sigma2;
-  outlier_tmp=(*outlier*M*pow (-ksig*3.14159265358979,0.5*D))/((1-*outlier)*N); 
+  outlier_tmp=(*outlier*M*pow (-ksig*3.14159265358979,0.5*D))/((1-*outlier)*N); // right half of the denominator
  /* printf ("ksig = %lf\n", *sigma2);*/
   /* outlier_tmp=*outlier*N/(1- *outlier)/M*(-ksig*3.14159265358979); */
   
-  
+  // for each point in the target set
   for (n=0; n < N; n++) {
       
       sp=0;
+      // for each point in the input set
       for (m=0; m < M; m++) {
           razn=0;
+          
+          // for each dimension (x, y, z)
           for (d=0; d < D; d++) {
+             // diff is |Xn - Ym|^2
              diff=*(x+n+d*N)-*(y+m+d*M);  diff=diff*diff;
+             // razn is 
              razn+=diff;
           }
           
-          *(P+m)=exp(razn/ksig);
-          sp+=*(P+m);
+          // sp = P[m] = e^(|Xn - Ym|^2 / (-2.0*sigma^2))
+          *(P+m)=exp(razn/ksig); // numerator of Pmn equation
+          sp+=*(P+m);// accumulate the denominator
       }
       
-      sp+=outlier_tmp;
+      // sp = sum{e^(|Xn - Ym|^2 / (-2.0*sigma^2))} + (2*pi*sigma^2)^(D/2)*w/(1-w)*M/N
+      sp+=outlier_tmp; // add the outlier term to the denominator
+      
+      // Pt1[n] = 1 - ((2*pi*sigma^2)^(D/2)*w/(1-w)*M/N) / (sum{e^(|Xn - Ym|^2 / (-2.0*sigma^2))} + (2*pi*sigma^2)^(D/2)*w/(1-w)*M/N)
       *(Pt1+n)=1-outlier_tmp/ sp;
       
+      // set temp x to current target point divided by (sum{e^(|Xn - Ym|^2 / (-2.0*sigma^2))} + (2*pi*sigma^2)^(D/2)*w/(1-w)*M/N)
       for (d=0; d < D; d++) {
        *(temp_x+d)=*(x+n+d*N)/ sp;
       }
-         
+      
+      // for each point in the input set
       for (m=0; m < M; m++) {
          
-          *(P1+m)+=*(P+m)/ sp;
+          // P1[m] =  P[m] / ((sum{e^(|Xn - Ym|^2 / (-2.0*sigma^2))} + (2*pi*sigma^2)^(D/2)*w/(1-w)*M/N))
+          *(P1+m)+=*(P+m)/ sp; // normalize the probability
           
+          // for each dimension
           for (d=0; d < D; d++) {
+          // Px[m][d] += temp_x[d]*P[m]
           *(Px+m+d*M)+= *(temp_x+d)**(P+m);
           }
           
